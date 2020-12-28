@@ -43,10 +43,10 @@ namespace Microsoft.AspNetCore
             hostBuilder.ConfigureServices(services =>
             {
                 var configuration = services.BuildServiceProvider().GetRequiredService<IConfiguration>();
-                TraceConfig traceConfig = new TraceConfig();
-                configuration.Bind(traceConfig);
-                services.AddSingleton<TraceConfig>(traceConfig);
-                services.AddSingleton<IStartupFilter>(new AnnoSetupFilter(traceConfig));
+                ViperConfig viperConfig = new ViperConfig();
+                configuration.Bind(viperConfig);
+                services.AddSingleton<ViperConfig>(viperConfig);
+                services.AddSingleton<IStartupFilter>(new AnnoSetupFilter(viperConfig));
             });
 
 
@@ -57,12 +57,12 @@ namespace Microsoft.AspNetCore
     {
         private static volatile ConcurrentDictionary<string, LimitInfo> _rateLimitPool = new ConcurrentDictionary<string, LimitInfo>();
         private static readonly CronDaemon CronDaemon = new CronDaemon();
-        private readonly TraceConfig traceConfig = new TraceConfig();
-        public AnnoSetupFilter(TraceConfig _traceConfig)
+        private readonly ViperConfig vierConfig = new ViperConfig();
+        public AnnoSetupFilter(ViperConfig _viperConfig)
         {
             CronDaemon.AddJob("1 */10 * * * ? *", ClearLimit);
             CronDaemon.Start();
-            traceConfig = _traceConfig;
+            this.vierConfig = _viperConfig;
         }
         public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
         {
@@ -125,17 +125,17 @@ namespace Microsoft.AspNetCore
             #region 限流
             if (RateLimit(context))
             {
-                context.Response.StatusCode = 203;
+                context.Response.StatusCode = 429;
                 Dictionary<string, object> rlt = new Dictionary<string, object>();
                 rlt.Add("status", false);
                 rlt.Add("msg", "Trigger current limiting.");
                 rlt.Add("output", null);
-                rlt.Add("outputData", 203);
+                rlt.Add("outputData", 429);
                 var rltExec = System.Text.Encoding.UTF8.GetString(rlt.ExecuteResult());
                 input.TryAdd("TraceId", Guid.NewGuid().ToString());
                 input.TryAdd("GlobalTraceId", Guid.NewGuid().ToString());
-                input.TryAdd("AppName", traceConfig.Target.AppName);
-                input.TryAdd("AppNameTarget", traceConfig.Target.AppName);
+                input.TryAdd("AppName", vierConfig.Target.AppName);
+                input.TryAdd("AppNameTarget", vierConfig.Target.AppName);
                 TracePool.EnQueue(TracePool.CreateTrance(input), FailMessage("Trigger current limiting.", false));
                 return context.Response.WriteAsync(rltExec);
             }
@@ -202,12 +202,13 @@ namespace Microsoft.AspNetCore
         private bool RateLimit(HttpContext httpContext)
         {
             bool limit = false;
-            if (traceConfig.Limit.Enable)
+            if (vierConfig.Limit?.Enable == true)
             {
                 var ip = httpContext.Connection.RemoteIpAddress.MapToIPv4();
 
                 #region IpLimit
-                if (traceConfig.Limit.IpLimit != null)
+
+                if (vierConfig.Limit != null)
                 {
                     if (IsBlackRateLimit(ip))//黑名单
                     {
@@ -220,11 +221,12 @@ namespace Microsoft.AspNetCore
                     _rateLimitPool.TryGetValue(ip.ToString(), out LimitInfo limitInfo);
                     if (limitInfo == null)
                     {
-                        Iplimit iplimit = traceConfig.Limit.IpLimit;
-                        var limitingService = LimitingFactory.Build(TimeSpan.FromSeconds(traceConfig.Limit.IpLimit.timeSpan)
+                        //IP限流策略
+                        Iplimit iplimit = MatchIpLimit(ip);
+                        var limitingService = LimitingFactory.Build(TimeSpan.FromSeconds(iplimit.timeSpan)
                               , LimitingType.LeakageBucket
-                              , (int)traceConfig.Limit.IpLimit.rps
-                              , (int)traceConfig.Limit.IpLimit.limitSize);
+                              , (int)iplimit.rps
+                              , (int)iplimit.limitSize);
                         limitInfo = new LimitInfo()
                         {
                             Time = DateTime.Now,
@@ -245,15 +247,14 @@ namespace Microsoft.AspNetCore
                 }
                 #endregion
                 #region TagLimit
-                if (traceConfig.Limit.TagLimits != null)
+                if (vierConfig.Limit.TagLimits != null)
                 {
-                    var taglimit = GetTag(httpContext);
+                    var taglimit = MatchTag(httpContext);
                     if (taglimit != null)
                     {
                         _rateLimitPool.TryGetValue($"{ taglimit.channel}.{ taglimit.router}", out LimitInfo limitInfo);
                         if (limitInfo == null)
                         {
-                            Iplimit iplimit = traceConfig.Limit.IpLimit;
                             var limitingService = LimitingFactory.Build(TimeSpan.FromSeconds(taglimit.timeSpan)
                                 , LimitingType.LeakageBucket
                                 , (int)taglimit.rps
@@ -289,7 +290,11 @@ namespace Microsoft.AspNetCore
         /// <returns></returns>
         private bool IsBlackRateLimit(System.Net.IPAddress ip)
         {
-            foreach (var range in traceConfig.Limit.PolicyBlack)
+            if (vierConfig.Limit?.PolicyBlack == null)
+            {
+                return false;
+            }
+            foreach (var range in vierConfig.Limit.PolicyBlack)
             {
                 if (range.Contains(ip))
                 {
@@ -305,7 +310,11 @@ namespace Microsoft.AspNetCore
         /// <returns></returns>
         private bool IsWhiteRateLimit(System.Net.IPAddress ip)
         {
-            foreach (var range in traceConfig.Limit.PolicyWhite)
+            if (vierConfig.Limit?.PolicyWhite == null)
+            {
+                return false;
+            }
+            foreach (var range in vierConfig.Limit.PolicyWhite)
             {
                 if (range.Contains(ip))
                 {
@@ -314,7 +323,29 @@ namespace Microsoft.AspNetCore
             }
             return false;
         }
-        private Taglimit GetTag(HttpContext httpContext)
+        /// <summary>
+        /// 匹配IP限流
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <returns></returns>
+        private Iplimit MatchIpLimit(System.Net.IPAddress ip)
+        {
+            Iplimit ipLimit = vierConfig.Limit?.DefaultIpLimit;
+            foreach (var iplimit in vierConfig.Limit.IpLimits)
+            {
+                if (iplimit.IpRange.Contains(ip))
+                {
+                    return iplimit;
+                }
+            }
+            return ipLimit;
+        }
+        /// <summary>
+        /// 匹配标签限流
+        /// </summary>
+        /// <param name="httpContext"></param>
+        /// <returns></returns>
+        private Taglimit MatchTag(HttpContext httpContext)
         {
             string channel = string.Empty, router = string.Empty;
             #region Get channel、router
@@ -361,7 +392,7 @@ namespace Microsoft.AspNetCore
                 }
             }
             #endregion
-            var tags = traceConfig.Limit.TagLimits.ToList();
+            var tags = vierConfig.Limit.TagLimits.ToList();
             var tags0 = tags.FirstOrDefault(t => t.channel == channel && t.router == router);
             if (tags0 != null)
             {
@@ -406,16 +437,16 @@ namespace Microsoft.AspNetCore
     class AnnoMiddleware
     {
         private readonly RequestDelegate _next;
-        private TraceConfig traceConfig = new TraceConfig();
+        private ViperConfig viperConfig = new ViperConfig();
         public AnnoMiddleware(RequestDelegate next, IConfiguration configuration)
         {
             _next = next;
-            configuration.Bind(traceConfig);
+            configuration.Bind(viperConfig);
             DefaultConfigManager
-                .SetDefaultConfiguration(traceConfig.Target.AppName
-                , traceConfig.Target.IpAddress
-                , traceConfig.Target.Port
-                , traceConfig.Target.TraceOnOff);
+                .SetDefaultConfiguration(viperConfig.Target.AppName
+                , viperConfig.Target.IpAddress
+                , viperConfig.Target.Port
+                , viperConfig.Target.TraceOnOff);
         }
 
         public async Task Invoke(HttpContext httpContext)
