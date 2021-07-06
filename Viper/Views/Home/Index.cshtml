@@ -4,7 +4,7 @@
 }
 
 @*<script src="~/js/jquery.min.js"></script>*@
-<script src="https://cdn.jsdelivr.net/npm/jquery"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
 <script src="~/js/base.js"></script>
 
 
@@ -15,7 +15,7 @@
 <!-- 引入样式 -->
 <!--<link href="~/css/element-ui-index.css" rel="stylesheet" />-->
 <!-- 生产环境版本，优化了尺寸和速度 -->
-<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.min.js"></script>
 <!-- 引入样式 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.14.0/lib/theme-chalk/index.css">
 <!-- 引入组件库 -->
@@ -24,12 +24,12 @@
 <script src="~/js/httpVue/bluebird.min.js"></script>
 <script src="~/js/httpVue/httpVueLoader.min.js"></script>
 
-<div id="app" style="height:100%;">
+<div id="app" style="height:100%;display:none;">
     <el-container>
         <el-container>
             <el-aside style="background-color: #545c64;" v-bind:style="{width:menumWidth}">
                 <div :class="{pc_menum:!isMobile,mobile_menum:isMobile}">
-                    <el-menu :class="'el-menu'+menumWidth" :collapse="isCollapse" background-color="#001529" text-color="#fff" active-text-color="#ffd04b">
+                    <el-menu :class="'el-menu'+menumWidth" :collapse="isCollapse" background-color="#001529" text-color="#fff" >
                         <el-radio-group v-model="isCollapse" v-bind:style="{width:menumWidth}" style="height: 60px; background-color: #002140; text-align: center;">
                             <img src="~/img/logo.jpg" v-on:click="changeisCollapse" style="width: 48px; height: 48px; padding-top:6px; border: 2px; border-radius: 22.5px; -moz-border-radius: 25px; vertical-align: middle;" />
                             <span v-show="!isCollapse" style="font-size: 14px; color: white; font-weight: bold;margin-left: 3px; vertical-align: middle;">Viper&Anno</span>
@@ -50,9 +50,17 @@
                         <i :class="{'el-icon-s-fold':isCollapse==false,'el-icon-s-unfold':isCollapse}"></i>
                     </div>
                     <a v-show="(_isMobile&&isCollapse)||(!_isMobile)" style="cursor: pointer; text-decoration: underline; float:left;margin-left:40px;color:#3e3434;" target="_blank" href="https://duyanming.github.io/">官方文档</a>
-                    <div uInfo style="height: 60px; float: right;">
-                        <a style="cursor: pointer; text-decoration: underline;" v-on:click="openUserCenter">{{profile.name}}({{profile.account}})</a>
-                        <a style="cursor: pointer; text-decoration: underline; margin-left: 3px;" v-on:click="exitUser">退出</a>
+                    <div uInfo style="height: 60px; float: right; margin-right:10px;">
+                        <el-avatar size="medium" style="vertical-align: middle;">{{profile.account}}</el-avatar>
+                        <el-dropdown trigger="click" @@command="handleCommand">
+                            <span class="el-dropdown-link">
+                                {{profile.name}}<i class="el-icon-caret-bottom el-icon--right"></i>
+                            </span>
+                            <el-dropdown-menu slot="dropdown">
+                                <el-dropdown-item command="openUserCenter">个人中心</el-dropdown-item>
+                                <el-dropdown-item divided command="exitUser">退出</el-dropdown-item>
+                            </el-dropdown-menu>
+                        </el-dropdown>
                     </div>
                 </el-header>
                 <el-container>
@@ -63,7 +71,7 @@
                                      :name="item.name"
                                      :closable="item.closable">
                             <el-container v-loading="item.loading">
-                                <iframe :id="item.id" @@load="tabOnLoad" frameborder="0" :src="item.src" style="width: 100%; height: calc(100% - 100px);">
+                                <iframe :id="item.id" @@load="tabOnLoad" frameborder="0" :src="item.src" style="width: 100%; height: calc(100% - 87px);">
                                 </iframe>
                             </el-container>
                         </el-tab-pane>
@@ -72,7 +80,6 @@
             </el-main>
         </el-container>
     </el-container>
-
 </div>
 <script>
     if (bif.input.profile === undefined || localStorage.profile === undefined) {
@@ -99,10 +106,10 @@
             profile: JSON.parse(localStorage.profile),
             menuroot: [],
             tabs: [
-                { id: "dashboard", name: "Dashboard", closable:false, src: "html/welcome.html", loading:false}
+                { id: "dashboard", name: "Dashboard", closable:false, src: "html/welcome.html?appName=@(Anno.Const.SettingService.AppName)", loading:false}
             ]
-        }
-        , created: function () {//用于数据初始化
+        },
+        created: function () {//用于数据初始化
             var that = this;
             if (bif.input.profile === undefined || localStorage.profile === undefined) {
                 window.location.href = "/Home/Login";
@@ -122,8 +129,16 @@
                 }
             });
             bif.ajaxpara.async = true;
+            $("#app").css("display", "");
         },
         methods: {
+            handleCommand: function (command) {
+                if (command === "openUserCenter") {
+                    this.openUserCenter();
+                } else if (command === "exitUser") {
+                    this.exitUser();
+                }
+            },
             removeTab: function (targetName) {
                 var that = this;
                 let tabs = that.tabs;
@@ -186,7 +201,7 @@
                     that.activeName = item.fname;
                     return;
                 }
-                var tab = { id: "dashboard", name: "Dashboard", closable: true, src: "html/welcome.html", loading: true };
+                var tab = { id: "dashboard", name: "Dashboard", closable: true, src: "html/welcome.html?appName=@(Anno.Const.SettingService.AppName)", loading: true };
                 tab.id = item.id;
                 tab.name = item.fname;
                 tab.src = item.furl;
@@ -202,15 +217,19 @@
                 }
             },
             exitUser: function () {
-                if (confirm("确定退出？")) {
+                this.$confirm("确定退出？", "退出登录", {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(function () {
                     localStorage.clear();
                     bif.input.profile = undefined;
                     bif.input.uname = undefined;
                     window.location.href = "/Home/Login";
-                }
+                });
             },
             openUserCenter: function () {
-                this.openMenuItem({ id: "pcenter", fname: "个人中心", furl: "html/pcenter.html"});
+                this.openMenuItem({ id: "pcenter", fname: "个人中心", furl: "html/component.html?anno_component_name=anno-user-center"});
             },
             getFunc: function () {
                 var that = this;
@@ -321,8 +340,6 @@
     }
 
     div[uInfo] {
-        /*color: #E7E7E7;*/
-        text-decoration: underline;
         margin-left: 10px;
     }
 
@@ -373,6 +390,9 @@
         padding: 0 0;
         overflow-y: hidden;
         /*margin-left: 8px;*/
+    }
+    .el-tabs__header {
+        margin: 0px;
     }
 </style>
 

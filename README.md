@@ -1,7 +1,19 @@
 # 🎄Viper
-    Viper 是一个基于Anno微服务引擎开发的项目
+    Viper 是一个基于Anno微服务引擎开发的Dashboard项目、示例项目。Anno 底层通讯采用 grpc、thrift。自带服务发现、调用链追踪、Cron 调度、限流、事件总线等等
 
-![Dashboard](https://s1.ax1x.com/2020/09/26/0iRcIU.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/Rade3R.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RadaKP.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RawXSs.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/Ra0FfJ.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RadBVS.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RadWrV.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RadXqK.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RawPxI.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RaweIg.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RawhQI.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/Ra0tnP.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/Ra0ocR.png)
+![Dashboard](https://z3.ax1x.com/2021/06/29/RaBkE8.png)
 
 ##  🎩[Java 实现 ](https://github.com/duyanming/anno.thrift-parent) : https://github.com/duyanming/anno.thrift-parent
 
@@ -19,10 +31,10 @@
 ```xml
 运行数据库脚本创建数据库
 
-	1、Viper\database\Viper20200926184831.sql
+	1、Viper\database\viper20210617_01.sql
 
 	2、修改viperService 数据库连接字符串
-		Viper\ViperService\bin\Debug\netcoreapp3.1\Anno.config
+		Viper\ViperService\bin\Debug\net5\Anno.config
 ```
 
 ```xml
@@ -35,7 +47,7 @@
 
 ```
 第一步：启动注册中心
-	Viper\ViperCenter\bin\Debug\netcoreapp3.1\Anno.config
+	Viper\ViperCenter\bin\Debug\net5\Anno.config
 ```
 
 ``` xml
@@ -54,14 +66,14 @@
 
 
 
-    进入项目文件夹 Viper\ViperCenter\bin\Debug\netcoreapp3.1 
+    进入项目文件夹 Viper\ViperCenter\bin\Debug\net5
     运行命令 dotnet ViperCenter.dll
     看到下图 说明运行成功
-![第一步](https://s1.ax1x.com/2020/09/26/0iRxsI.png)
+![第一步](https://z3.ax1x.com/2021/04/01/cE4a5T.png)
 
 ```
 第二步：启动 ViperService
-	Viper\ViperService\bin\Debug\netcoreapp3.1\Anno.config
+	Viper\ViperService\bin\Debug\net5\Anno.config
 ```
 
 ``` xml
@@ -127,10 +139,10 @@
 
 
     ViperService 可以和 ViperCenter 不在同一台电脑，也可以运行多个server 也可以负载均衡，高级用法随后介绍
-    进入项目文件夹 Viper\ViperService\bin\Debug\netcoreapp3.1 
+    进入项目文件夹 Viper\ViperService\bin\Debug\net5 
     运行命令 dotnet ViperService.dll
     看到下图 说明 ViperService 成功运行 并且已经注册到 注册中心（ViperCenter）运行成功
-![第二步](https://s1.ax1x.com/2020/09/26/0iWuwV.png)
+![第二步](https://z3.ax1x.com/2021/04/01/cE5PZq.png)
 
 启动 Viper.GetWay
 
@@ -193,19 +205,19 @@
 
 
 
-![第三步](https://s1.ax1x.com/2020/07/30/anlo26.png)
+![第三步](https://z3.ax1x.com/2021/04/01/cE5gyj.png)
 
 ```
 调用链详情
 ```
 
-![第三步](https://s1.ax1x.com/2020/07/30/anlI8x.png)
+![第三步](https://z3.ax1x.com/2021/04/01/cE5fwq.png)
 
  第四步：集群路由信息
 
-![第三步](https://s1.ax1x.com/2020/07/30/anGPsK.png)
+![第三步](https://z3.ax1x.com/2021/04/01/cE5Hl4.png)
 
-   ![第三步](https://s1.ax1x.com/2020/07/30/anGNzq.png)
+   ![第三步](https://z3.ax1x.com/2021/04/01/cEIiXd.png)
 
 ```
 调试邮件接口成功
@@ -217,8 +229,7 @@
 
 第五步：服务性能监控
        
-![第四步](https://s1.ax1x.com/2020/09/26/0iRcIU.png)
-
+![第四步](https://z3.ax1x.com/2021/06/29/Rade3R.png)
 
 
 # 👒Anno EventBus
@@ -230,11 +241,6 @@
 	var funcs = Anno.Const.Assemblys.Dic.Values.ToList();
                 #region RabbitMQEventBus
                 //消费失败通知
-
-                RabbitMQEventBus.Instance.ErrorNotice += (string exchange, string routingKey, Exception exception, string body) =>
-                        {
-                            Log.Fatal(new { exchange, routingKey, exception, body }, typeof(RabbitMQEventBus));
-                        };
                 EventBusSetting.Default.RabbitConfiguration = new RabbitConfiguration()
                 {
                     HostName = "192.168.100.173",
@@ -243,6 +249,10 @@
                     Password = "dev",
                     Port = 5672
                 };
+                RabbitMQEventBus.Instance.ErrorNotice += (string exchange, string routingKey, Exception exception, string body) =>
+                        {
+                            Log.Fatal(new { exchange, routingKey, exception, body }, typeof(RabbitMQEventBus));
+                        };
                 RabbitMQEventBus.Instance.SubscribeAll(funcs);
 
                 #endregion

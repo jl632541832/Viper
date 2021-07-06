@@ -15,6 +15,7 @@ using Anno.QueryServices.Platform;
 namespace Anno.Plugs.LogicService
 {
     using Anno.CommandBus;
+    using Anno.Plugs.LogicService.Filters;
 
     public class PlatformModule : BaseModule
     {
@@ -53,6 +54,7 @@ namespace Anno.Plugs.LogicService
         /// </summary>
         /// <returns></returns>
         [AnnoInfo(Desc = "修改密码")]
+        [NotChangePassword("anno","yrm")]
         public ActionResult ChangePwd()
         {
             var dto = this.Request<ChangePwdInputDto>("dto");
@@ -354,6 +356,42 @@ namespace Anno.Plugs.LogicService
         public ActionResult Get_rfs()
         {
             return _platformQuery.Get_rfs();
+        }
+        /// <summary>
+        /// 获取角色分页数据
+        /// </summary>
+        /// <returns></returns>
+        [AnnoInfo(Desc = "获取角色分页数据")]
+        public ActionResult GetRolePage()
+        {
+            PageParameter pageParameter = new PageParameter
+            {
+                Page = RequestInt32("page") ?? 1,
+                Pagesize = RequestInt32("pagesize") ?? 20,
+                SortName = RequestString("sortname") ?? "id",
+                SortOrder = RequestString("sortorder") ?? "asc",
+                Where = Filter()
+            };
+            string roleName = RequestString("roleName");
+
+            pageParameter.SortName?.Replace(Table, ".");
+            pageParameter.SortOrder?.Replace(Table, ".");
+            var totalNumber = 0;
+            if (string.IsNullOrWhiteSpace(pageParameter.SortName))
+            {
+                pageParameter.SortName = "id";
+            }
+            if (string.IsNullOrWhiteSpace(pageParameter.SortOrder))
+            {
+                pageParameter.SortOrder = "asc";
+            }
+            var dt = DbInstance.Db.Queryable<sys_roles>()
+                .WhereIF(!string.IsNullOrWhiteSpace(roleName),it=>it.name.Contains(roleName))
+                .OrderBy($"{pageParameter.SortName} {pageParameter.SortOrder}")
+                .ToPageList(pageParameter.Page, pageParameter.Pagesize, ref totalNumber);
+
+            var output = new Dictionary<string, object> { { "Total", totalNumber }, { "Data", dt } };
+            return new ActionResult(true, output);
         }
         #endregion
 

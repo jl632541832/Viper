@@ -73,11 +73,35 @@ namespace Microsoft.AspNetCore
                 app.UseEndpoints(endpoints =>
                 {
                     endpoints.Map("SysMg/Api", Api);
+                    endpoints.Map("Deploy/Api", DeloyApi);
                 });
                 next(app);
             };
         }
         private Task Api(HttpContext context)
+        {
+            return ApiInvoke(context, (input) =>
+            {
+                return Connector.BrokerDns(input);
+            });
+        }
+        private Task DeloyApi(HttpContext context)
+        {
+            return ApiInvoke(context, (input) =>
+            {
+                input.TryGetValue("nodeName", out string nickName);
+                if (!string.IsNullOrWhiteSpace(nickName))
+                {
+                    return Connector.BrokerDnsAsync(input, nickName).ConfigureAwait(false).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    return Connector.BrokerDns(input);
+                }
+            });
+        }
+
+        private Task ApiInvoke(HttpContext context, Func<Dictionary<string, string>, string> invoke)
         {
             context.Response.ContentType = "Content-Type: application/javascript; charset=utf-8";
             Dictionary<string, string> input = new Dictionary<string, string>();
@@ -105,6 +129,15 @@ namespace Microsoft.AspNetCore
                         {
                             input.Add(k, Request.Form[k]);
                         }
+                        foreach (IFormFile file in Request.Form.Files)
+                        {
+                            var fileName = file.Name;
+                            if (string.IsNullOrWhiteSpace(fileName))
+                            {
+                                fileName = file.FileName;
+                            }
+                            input.TryAdd(fileName, file.ToBase64());
+                        }
                     }
                 }
                 finally
@@ -118,9 +151,6 @@ namespace Microsoft.AspNetCore
                     }
                 }
             }
-            #endregion
-            #region 缓存--未完
-
             #endregion
             #region 限流
             if (RateLimit(context))
@@ -145,8 +175,8 @@ namespace Microsoft.AspNetCore
             try
             {
                 //分发器
-                var rlt = Connector.BrokerDns(input);
-                actionResult = Newtonsoft.Json.JsonConvert.DeserializeObject<ActionResult>(rlt);
+                var rlt = invoke(input);
+                actionResult = JsonConvert.DeserializeObject<ActionResult>(rlt);
 
             }
             catch (Exception ex)
@@ -183,6 +213,9 @@ namespace Microsoft.AspNetCore
             #endregion
             return context.Response.WriteAsync(System.Text.Encoding.UTF8.GetString(rltd.ExecuteResult()));
         }
+
+        #region 工具
+
         /// <summary>
         /// 构建错误消息Json字符串
         /// </summary>
@@ -427,6 +460,8 @@ namespace Microsoft.AspNetCore
                 }
             });
         }
+
+        #endregion 
     }
 
     class LimitInfo
